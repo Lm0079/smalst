@@ -1,7 +1,7 @@
 import os
 import pickle as pkl
 import numpy as np
-from .smpl_webuser.serialization import load_model
+from smpl_webuser.serialization import load_model
 import pickle as pkl
 
 model_dir = 'smalst/smpl_models/'
@@ -15,7 +15,7 @@ def align_smal_template_to_symmetry_axis(v):
     v[:,1] = v[:,1] - y
     v[I,1] = 0
     sym_path = os.path.join(model_dir, 'symIdx.pkl')
-    symIdx = pkl.load(open(sym_path,"rb"),fix_imports=True, encoding="latin1")
+    symIdx = pkl.load(open(sym_path))
     left = v[:, 1] < 0
     right = v[:, 1] > 0
     center = v[:, 1] == 0
@@ -47,11 +47,9 @@ def get_horse_template(model_name='my_smpl_00781_4_all.pkl', data_name='my_smpl_
     model = load_model(model_path)
     nBetas = len(model.betas.r)
     data_path = os.path.join(model_dir, 'my_smpl_data_00781_4_all.pkl')
-    data = pkl.load(open(data_path,"rb"),fix_imports=True, encoding="latin1")
+    data = pkl.load(open(data_path))
     # Select average zebra/horse
     betas = data['cluster_means'][2][:nBetas]
     model.betas[:] = betas
     v = model.r.copy()
     return v
-
-
