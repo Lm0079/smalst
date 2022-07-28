@@ -44,11 +44,10 @@ class NMR(object):
         Returns:
             masks: B X 256 X 256 numpy array
         '''
-        self.faces = chainer.Variable(chainer.cuda.to_gpu(faces, self.cuda_device))
+        
+        self.faces =  chainer.Variable(chainer.cuda.to_gpu(faces, self.cuda_device))
         self.vertices = chainer.Variable(chainer.cuda.to_gpu(vertices, self.cuda_device))
-
         self.masks = self.renderer.render_silhouettes(self.vertices, self.faces)
-
         masks = self.masks.data.get()
         return masks
     
@@ -72,6 +71,7 @@ class NMR(object):
         Returns:
             images: B X 3 x 256 X 256 numpy array
         '''
+
         self.faces = chainer.Variable(chainer.cuda.to_gpu(faces, self.cuda_device))
         self.vertices = chainer.Variable(chainer.cuda.to_gpu(vertices, self.cuda_device))
         self.textures = chainer.Variable(chainer.cuda.to_gpu(textures, self.cuda_device))
@@ -99,39 +99,40 @@ class NMR(object):
 ########################################################################
 class Render(torch.autograd.Function):
     # TODO(Shubham): Make sure the outputs/gradients are on the GPU
-    def __init__(self, renderer):
-        super(Render, self).__init__()
-        self.renderer = renderer
 
-    def forward(self, vertices, faces, textures=None):
+    @staticmethod
+    def forward(ctx, vertices, faces,renderer, textures=None):
         # B x N x 3
         # Flipping the y-axis here to make it align with the image coordinate system!
         vs = vertices.cpu().numpy()
         vs[:, :, 1] *= -1
         fs = faces.cpu().numpy()
+        ctx.renderer = renderer
         if textures is None:
-            self.mask_only = True
-            masks = self.renderer.forward_mask(vs, fs)
+            ctx.mask_only = True
+            masks = ctx.renderer.forward_mask(vs, fs)
             return convert_as(torch.Tensor(masks), vertices)
         else:
-            self.mask_only = False
+            ctx.mask_only = False
             ts = textures.cpu().numpy()
-            imgs = self.renderer.forward_img(vs, fs, ts)
+            imgs = ctx.renderer.forward_img(vs, fs, ts)
             return convert_as(torch.Tensor(imgs), vertices)
-
-    def backward(self, grad_out):
+          
+    @staticmethod
+    def backward(ctx, grad_out):
         g_o = grad_out.cpu().numpy()
-        if self.mask_only:
-            grad_verts = self.renderer.backward_mask(g_o)
+        if ctx.mask_only:
+            grad_verts = ctx.renderer.backward_mask(g_o)
             grad_verts = convert_as(torch.Tensor(grad_verts), grad_out)
             grad_tex = None
         else:
-            grad_verts, grad_tex = self.renderer.backward_img(g_o)
+            grad_verts, grad_tex = ctx.renderer.backward_img(g_o)
             grad_verts = convert_as(torch.Tensor(grad_verts), grad_out)
             grad_tex = convert_as(torch.Tensor(grad_tex), grad_out)
-
         grad_verts[:, :, 1] *= -1
-        return grad_verts, None, grad_tex
+
+        return grad_verts, None,None, grad_tex
+
 
 
 ########################################################################
@@ -194,8 +195,6 @@ class NeuralRenderer(torch.nn.Module):
         verts = self.proj_fn(vertices, cams, offset_z=self.offset_z, norm_f=self.norm_f, norm_z=self.norm_z, norm_f0=self.norm_f0)
 
         if textures is not None:
-            return Render(self.renderer)(verts, faces, textures)
+            return Render.apply(verts, faces, self.renderer,textures)
         else:
-            return Render(self.renderer)(verts, faces)
-
-
+            return Render.apply(verts, faces,self.renderer)

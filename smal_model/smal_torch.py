@@ -22,11 +22,10 @@ class SMAL(object):
     def __init__(self, pkl_path, opts, dtype=torch.float):
         self.opts = opts
         # -- Load SMPL params --
-        with open(pkl_path, 'r') as f:
-            dd = pkl.load(f)
+        with open(pkl_path, 'rb') as f:
+            dd = pkl.load(f,fix_imports=True, encoding="latin1")
 
         self.f = dd['f']
-
         v_template = get_horse_template(model_name='my_smpl_00781_4_all.pkl', data_name='my_smpl_data_00781_4_all.pkl')
         v, self.left_inds, self.right_inds, self.center_inds = align_smal_template_to_symmetry_axis(v_template)
 
@@ -38,9 +37,9 @@ class SMAL(object):
         self.size = [self.v_template.shape[0], 3]
         self.num_betas = dd['shapedirs'].shape[-1]
         # Shape blend shape basis
-        
         shapedir = np.reshape(
             undo_chumpy(dd['shapedirs']), [-1, self.num_betas]).T
+        shapedir = np.copy(shapedir)
         self.shapedirs = Variable(
             torch.Tensor(shapedir).cuda(device=self.opts.gpu_id), requires_grad=False)
 
@@ -48,10 +47,8 @@ class SMAL(object):
         self.J_regressor = Variable(
             torch.Tensor(dd['J_regressor'].T.todense()).cuda(device=self.opts.gpu_id),
             requires_grad=False)
-
         # Pose blend shape basis
         num_pose_basis = dd['posedirs'].shape[-1]
-        
         posedirs = np.reshape(
             undo_chumpy(dd['posedirs']), [-1, num_pose_basis]).T
         self.posedirs = Variable(

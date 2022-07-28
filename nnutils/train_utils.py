@@ -12,7 +12,7 @@ import time
 import pdb
 from absl import flags
 import pickle as pkl
-import scipy.misc
+import imageio
 import numpy as np
 from ..nnutils import geom_utils
 import time
@@ -145,7 +145,7 @@ class Trainer():
 
     def init_training(self):
         opts = self.opts
-        self.init_dataset()    
+        self.init_dataset() 
         self.define_model()
         self.define_criterion()
         if opts.use_sgd:
@@ -165,20 +165,17 @@ class Trainer():
             'pose': self.pose_pred.data.detach().cpu().numpy(),
             'initial_loss': initial_loss.data.detach().cpu().numpy(),
             }
-
-        scipy.misc.imsave(opts.image_file_string.replace('.png', code + 'mask.png'),
+        imageio.imwrite(opts.image_file_string.replace('.jpg', code + 'mask.png'),
                             255*self.mask_pred.detach().cpu()[0,:,:])
         uv_flows = self.model.texture_predictor.uvimage_pred
         uv_flows = uv_flows.permute(0, 2, 3, 1)
-        uv_images = torch.nn.functional.grid_sample(self.imgs, uv_flows)
-
-        scipy.misc.imsave(opts.image_file_string.replace('.png', code + 'tex.png'),
+        uv_images = torch.nn.functional.grid_sample(self.imgs, uv_flows,align_corners = True)
+        imageio.imwrite(opts.image_file_string.replace('.jpg', code + 'tex.png'),
                      255*np.transpose(uv_images.detach().cpu()[0,:,:,:], (1, 2, 0)))
-        pkl.dump(res_dict, open(opts.image_file_string.replace('.png', code + 'res.pkl'), 'wb'))
+        pkl.dump(res_dict, open(opts.image_file_string.replace('.jpg', code + 'res.pkl'), 'wb'))
 
 
     def train(self):
-
         time_stamp = str(time.time())[:10]
         opts = self.opts
         self.smoothed_total_loss = 0
@@ -334,16 +331,17 @@ class Trainer():
                         with open(v_log_file, 'a') as f:
                             f.write('{}: {}\n'.format(epoch, epoch_err))
 
+                
                 '''
                 if opts.is_optimization and (epoch==(opts.num_epochs-1) or epoch==opts.num_pretrain_epochs):
                     img_pred = self.texture_pred*self.mask_pred + self.background_imgs*(torch.abs(self.mask_pred - 1.))
                     T = img_pred.cpu().detach().numpy()[0,:,:,:]
                     T = np.transpose(T,(1,2,0))
-                    scipy.misc.imsave(code + '_img_pred_'+str(epoch)+'.png', T)
+                    imageio.imwrite(code + '_img_pred_'+str(epoch)+'.png', T)
                     img_pred = self.texture_pred*self.mask_pred + self.imgs*(torch.abs(self.mask_pred - 1.))
                     T = img_pred.cpu().detach().numpy()[0,:,:,:]
                     T = np.transpose(T,(1,2,0))
-                    scipy.misc.imsave(code + '_img_ol_'+str(epoch)+'.png', T)
+                    imageio.imwrite(code + '_img_ol_'+str(epoch)+'.png', T)
                 '''
 
                 '''
@@ -351,18 +349,18 @@ class Trainer():
                     img_pred = self.texture_pred*self.mask_pred + self.background_imgs*(torch.abs(self.mask_pred - 1.))
                     T = img_pred.cpu().detach().numpy()[0,:,:,:]
                     T = np.transpose(T,(1,2,0))
-                    scipy.misc.imsave(opts.name + '_img_pred_'+str(epoch)+'.png', T)
+                    imageio.imwrite(opts.name + '_img_pred_'+str(epoch)+'.png', T)
                     img_pred = self.texture_pred*self.mask_pred + self.imgs*(torch.abs(self.mask_pred - 1.))
                     T = img_pred.cpu().detach().numpy()[0,:,:,:]
                     T = np.transpose(T,(1,2,0))
-                    scipy.misc.imsave(opts.name + '_img_ol_'+str(epoch)+'.png', T)
+                    imageio.imwrite(opts.name + '_img_ol_'+str(epoch)+'.png', T)
                 '''
 
                 '''
                 if opts.is_optimization and epoch == opts.num_pretrain_epochs:
                     T = 255*self.imgs.cpu().detach().numpy()[0,:,:,:]
                     T = np.transpose(T,(1,2,0))
-                    scipy.misc.imsave(code+'_img_gt.png', T)
+                    imageio.imwrite(code+'_img_gt.png', T)
                 '''
 
                 
@@ -373,6 +371,6 @@ class Trainer():
                     else:
                         self.save(epoch+1)
                         self.save('latest')
-            if opts.is_optimization:
-                if opt_loss < initial_loss:
-                    visualizer.print_message('updated')
+                if opts.is_optimization:
+                    if opt_loss < initial_loss:
+                        visualizer.print_message('updated')

@@ -1,6 +1,5 @@
 """
 Base data loading class.
-
 Should output:
     - img: B X 3 X H X W
     - kp: B X nKp X 2
@@ -16,12 +15,10 @@ from __future__ import print_function
 
 import os.path as osp
 import numpy as np
-
-import scipy.misc
+import imageio
 import scipy.linalg
 import scipy.ndimage.interpolation
 from absl import flags, app
-
 import pickle as pkl
 
 import torch
@@ -72,12 +69,12 @@ class BaseDataset(Dataset):
         self.jitter_frac = opts.jitter_frac
         self.padding_frac = opts.padding_frac
         self.filter_key = filter_key
-
+          
         if not opts.use_smal_betas:
             # We need to load the blendshapes
             model_path = osp.join(self.opts.model_dir, self.opts.model_name)
-            with open(model_path, 'r') as f:
-                dd = pkl.load(f)
+            with open(model_path, 'rb') as f:
+                dd = pkl.load(f,fix_imports=True, encoding="latin1")
                 num_betas = dd['shapedirs'].shape[-1]
                 self.shapedirs = np.reshape(dd['shapedirs'], [-1, num_betas]).T
 
@@ -90,7 +87,7 @@ class BaseDataset(Dataset):
             if 'img' in data.keys():
                 img = data['img']
             else:
-                img = scipy.misc.imread(img_path) / 255.0
+                img = np.asarray(imageio.imread(img_path)) / 255.0
 
             camera_params = [np.copy(data_sfm['flength']), np.zeros(2)]
 
@@ -99,7 +96,7 @@ class BaseDataset(Dataset):
                 if 'texture_map_data' in data.keys():
                     texture_map = data['texture_map_data']
                 else:
-                    texture_map = scipy.misc.imread(texture_map_path) / 255.0
+                    texture_map = np.asarray(imageio.imread(texture_map_path)) / 255.0
                     texture_map = np.transpose(texture_map, (2, 0, 1))
             else:
                 texture_map = None
@@ -109,7 +106,7 @@ class BaseDataset(Dataset):
                 if 'mask' in data.keys():
                     mask = data['mask']
                 else:
-                    mask = scipy.misc.imread(mask_path) / 255.0
+                    mask = np.asarray(imageio.imread(mask_path)) / 255.0
             else:
                 mask = None
 
@@ -118,7 +115,8 @@ class BaseDataset(Dataset):
                 if 'uv_flow' in data.keys():
                     uv_flow = data['uv_flow']
                 else:
-                    uvdata = pkl.load(open(uv_flow_path))
+
+                    uvdata = pkl.load(open(uv_flow_path,"rb"),fix_imports=True, encoding="latin1")
                     uv_flow = uvdata['uv_flow'].astype(np.float32)
                     uv_flow[:,:,0] = uv_flow[:,:,0] /(uvdata['img_h']/2.)
                     uv_flow[:,:,1] = uv_flow[:,:,1] /(uvdata['img_w']/2.)
@@ -223,8 +221,8 @@ class BaseDataset(Dataset):
             model_trans[2] *= f_scale
 
         if self.opts.save_training:
-            scipy.misc.imsave(img_path+'.crop.png', img)
-            scipy.misc.imsave(img_path+'.crop_mask.png', mask)
+            imageio.imwrite(img_path+'.crop.png', img)
+            imageio.imwrite(img_path+'.crop_mask.png', mask)
             data = {'kp':kp, 'sfm_pose':camera_params, 'model_trans':model_trans, 'model_pose':model_pose, 'model_betas':model_betas}
             pkl.dump(data, open(img_path+'.crop.pkl', 'wb'))
             if uv_flow is not None:
@@ -411,7 +409,6 @@ class BaseDataset(Dataset):
         img, kp, mask, camera_params, texture_map, model_trans, model_pose, model_betas, model_delta_v, occ_map, img_path, uv_flow = self.forward_img(index)
 
         camera_params[0].shape = 1
-
         elem = {
             'img': img,
             'inds': index,
@@ -450,7 +447,6 @@ class BaseDataset(Dataset):
                 }
             else:
                 elem = elem[self.filter_key]
-
 
         return elem
 

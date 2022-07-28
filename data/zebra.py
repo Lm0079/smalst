@@ -1,5 +1,4 @@
 """
-
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -72,7 +71,7 @@ class ZebraDataset(base_data.BaseDataset):
             for i, img in enumerate(images):
                 anno_path = osp.join(self.data_dir, 'annotations/%s.pkl' % osp.splitext(osp.basename(img))[0])
                 if osp.exists(anno_path):
-                    self.anno[i] = pkl.load(open(anno_path))
+                    self.anno[i] = pkl.load(open(anno_path,"rb"),fix_imports=True, encoding="latin1")
                     self.anno[i]['mask_path'] = osp.join(self.data_dir, 'bgsub/%s.png' % osp.splitext(osp.basename(img))[0])
                     self.anno[i]['img_path'] = img
                     uv_flow_path = osp.join(self.data_dir, 'uvflow/%s.pkl' % osp.splitext(osp.basename(img))[0])
@@ -101,7 +100,7 @@ class ZebraDataset(base_data.BaseDataset):
                     if opts.preload_mask:
                         self.anno[i]['mask'] = scipy.misc.imread(self.anno[i]['mask_path']) / 255.0
                     if opts.preload_uvflow:
-                        uvdata = pkl.load(open(self.anno[i]['uv_flow_path']))
+                        uvdata = pkl.load(open(self.anno[i]['uv_flow_path'],"rb"),fix_imports=True, encoding="latin1")
                         uv_flow = uvdata['uv_flow'].astype(np.float32)
                         uv_flow[:,:,0] = uv_flow[:,:,0] /(uvdata['img_h']/2.)
                         uv_flow[:,:,1] = uv_flow[:,:,1] /(uvdata['img_w']/2.)
@@ -121,7 +120,6 @@ class ZebraDataset(base_data.BaseDataset):
 
         #import pdb; pdb.set_trace()
         #self.debug_crop()
-
 
 #----------- Data Loader ----------#
 #----------------------------------#

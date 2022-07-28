@@ -36,7 +36,7 @@ class MeshPredictor(object):
 
         # Load the texture map layers
         tex_masks = [None]*opts.number_of_textures
-        self.vert2kp = torch.Tensor(pkl.load(open('smalst/zebra_data/verts2kp.pkl'))).cuda(device=opts.gpu_id)
+        self.vert2kp = torch.Tensor(pkl.load(open('smalst/zebra_data/verts2kp.pkl',"rb"),fix_imports=True, encoding="latin1")).cuda(device=opts.gpu_id)
 
         print('Setting up model..')
         self.model = mesh_net.MeshNet(img_size, opts, nz_feat=opts.nz_feat, tex_masks=tex_masks)
@@ -155,7 +155,6 @@ class MeshPredictor(object):
             self.smal_verts = self.model.get_smal_verts(self.pose, self.betas, self.trans, del_v)
             self.pred_v = self.smal_verts
         else:
-            # TODO
             import pdb; pdb.set_trace()
 
         self.kp_verts = torch.matmul(self.vert2kp, self.pred_v)
@@ -187,7 +186,7 @@ class MeshPredictor(object):
             # B x H x W x 2
             self.uv_flows = uv_flows.permute(0, 2, 3, 1)
 
-            self.uv_images = torch.nn.functional.grid_sample(self.imgs, self.uv_flows)
+            self.uv_images = torch.nn.functional.grid_sample(self.imgs, self.uv_flows,align_corners = True)
         else:
             self.textures = None
 

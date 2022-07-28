@@ -208,7 +208,7 @@ class TexturePredictorUV(nn.Module):
                 uvimage_pred_layer[i] = uvimage_pred_layer[i].view(uvimage_pred_layer[i].size(0), self.nc_init, self.feat_H[i], self.feat_W[i])
                 # B x 2 or 3 x H x W
                 self.uvimage_pred_layer[i] = self.decoder[i].forward(uvimage_pred_layer[i])
-                self.uvimage_pred_layer[i] = torch.nn.functional.tanh(self.uvimage_pred_layer[i])
+                self.uvimage_pred_layer[i] = torch.tanh(self.uvimage_pred_layer[i])
 
             # Compose the predicted texture maps
             # Composition by tiling
@@ -234,7 +234,7 @@ class TexturePredictorUV(nn.Module):
             self.uvimage_pred = self.decoder.forward(uvimage_pred)
             self.uvimage_pred = torch.nn.functional.tanh(self.uvimage_pred)
 
-        tex_pred = torch.nn.functional.grid_sample(self.uvimage_pred, self.uv_sampler)
+        tex_pred = torch.nn.functional.grid_sample(self.uvimage_pred, self.uv_sampler,align_corners = True)
         tex_pred = tex_pred.view(self.uvimage_pred.size(0), -1, self.F, self.T, self.T).permute(0, 2, 3, 4, 1)
 
         if self.symmetric:
@@ -455,26 +455,20 @@ class MeshNet(nn.Module):
         self.symmetric = opts.symmetric
         self.symmetric_texture = opts.symmetric_texture
         self.tex_masks = tex_masks
-
         self.op_features = None
-
         # Instantiate the SMAL model in Torch
+        
         model_path = os.path.join(self.opts.model_dir, self.opts.model_name)
         self.smal = SMAL(pkl_path=model_path, opts=self.opts)
-
         self.left_idx = np.hstack((self.smal.left_inds, self.smal.center_inds))
         self.right_idx = np.hstack((self.smal.right_inds, self.smal.center_inds))
-
         pose = np.zeros((1,105))
         betas = np.zeros((1,self.opts.num_betas))
         V,J,R = self.smal(torch.Tensor(betas).cuda(device=self.opts.gpu_id), torch.Tensor(pose).cuda(device=self.opts.gpu_id))
         verts = V[0,:,:]
         verts = verts.data.cpu().numpy()
         faces = self.smal.f
-
-
         num_verts = verts.shape[0]
-
         if self.symmetric:
             verts, faces, num_indept, num_sym, num_indept_faces, num_sym_faces = mesh.make_symmetric(verts, faces, self.smal.left_inds, self.smal.right_inds, self.smal.center_inds)
             if sfm_mean_shape is not None:
@@ -502,7 +496,6 @@ class MeshNet(nn.Module):
             self.mean_v = nn.Parameter(torch.Tensor(verts))
             self.num_output = num_verts
             faces = faces.astype(np.int32) 
-
         verts_np = verts
         faces_np = faces
         self.faces = Variable(torch.LongTensor(faces).cuda(device=self.opts.gpu_id), requires_grad=False)
@@ -526,7 +519,7 @@ class MeshNet(nn.Module):
                 self.num_sym_faces = 0
 
             # Instead of loading an obj file
-            uv_data = pkl.load(open(os.path.join(self.opts.model_dir,opts.uv_data_file)))
+            uv_data = pkl.load(open(os.path.join(self.opts.model_dir,opts.uv_data_file),"rb"),fix_imports=True, encoding="latin1")
             vt = uv_data['vt']
             ft = uv_data['ft']
             self.vt = vt
@@ -619,4 +612,3 @@ class MeshNet(nn.Module):
 
     def get_mean_shape(self):
         return self.symmetrize(self.mean_v)
-

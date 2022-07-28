@@ -23,7 +23,7 @@ def from_img_to_nmr(texture_map, ft, vt, tex_size):
 
 def from_uvflow_to_img(imgs, uv_flows):
     uv_flows = uv_flows.permute(0, 2, 3, 1)
-    uv_images = torch.nn.functional.grid_sample(imgs, uv_flows)
+    uv_images = torch.nn.functional.grid_sample(imgs, uv_flows,align_corners = True)
     return uv_images
 
 
@@ -40,7 +40,7 @@ def sample_texture(uv_map, uv_img):
 
     # 1 x 3 x F x T*T
     textures = torch.nn.functional.grid_sample(uv_img_t,
-                                               uv_map_t.view(1, F, T * T, 2))
+                                               uv_map_t.view(1, F, T * T, 2),align_corners = True)
     # 1 x 3 x F x T x T --> 1 x F x T x T x 3
     textures = textures.view(-1, 3, F, T, T).permute(0, 2, 3, 4, 1)
     # Repeat it to make it 1 x F x T x T x 3
@@ -62,7 +62,7 @@ def sample_textures(texture_flow, images):
     F = texture_flow.size(1)
     flow_grid = texture_flow.view(-1, F, T * T, 2)
     # B x 3 x F x T*T
-    samples = torch.nn.functional.grid_sample(images, flow_grid)
+    samples = torch.nn.functional.grid_sample(images, flow_grid,align_corners = True)
     # B x 3 x F x T x T
     samples = samples.view(-1, 3, F, T, T)
     # B x F x T x T x 3

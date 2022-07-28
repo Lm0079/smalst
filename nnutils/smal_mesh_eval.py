@@ -58,7 +58,7 @@ def smal_mesh_eval(num_train_epoch):
     #predictor.eval()
 
     opts.num_train_epoch = num_train_epoch
-    img_path = 'smalst/validation_set/'
+    img_path = '/user/work/gh18931/zebra_validation_set/'
     images = sorted(glob(img_path+'*.jpg'))
     N = len(images)
 

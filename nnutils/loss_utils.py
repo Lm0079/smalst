@@ -25,7 +25,7 @@ def texture_dt_loss(texture_flow, dist_transf, vis_rend=None, cams=None, verts=N
     F = texture_flow.size(1)
     flow_grid = texture_flow.view(-1, F, T * T, 2)
     # B x 1 x F x T*T
-    dist_transf = torch.nn.functional.grid_sample(dist_transf, flow_grid)
+    dist_transf = torch.nn.functional.grid_sample(dist_transf, flow_grid,align_corners = True)
 
     if vis_rend is not None:
         # Visualize the error!

@@ -1,9 +1,6 @@
 """
-
 Example usage:
-
 python -m smalst.experiments.smal_shape --zebra_dir='smalst/zebra_no_toys_wtex_1000_0' --num_epochs=100000 --save_epoch_freq=20 --name=smal_net_600 --save_training_imgs=True --num_images=20000 --do_validation=True
-
 """
 
 from __future__ import absolute_import
@@ -11,15 +8,14 @@ from __future__ import division
 from __future__ import print_function
 from absl import app
 from absl import flags
-
+import imageio
 import os.path as osp
 import numpy as np
 import torch
 import torchvision
 from torch.autograd import Variable
 import scipy.io as sio
-import scipy
-import scipy.misc
+
 from collections import OrderedDict
 import pickle as pkl
 
@@ -33,6 +29,17 @@ from ..nnutils import smal_mesh_net
 from ..nnutils.nmr import NeuralRenderer
 from ..nnutils import geom_utils
 
+import traceback
+import warnings
+import sys
+
+def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
+    
+    #log = file if hasattr(file,'write') else sys.stderr
+    traceback.print_stack(file=sys.stdout)
+    sys.stdout.write(warnings.formatwarning(message, category, filename, lineno, line))
+
+warnings.showwarning = warn_with_traceback
 flags.DEFINE_string('dataset', 'zebra', 'zebra')
 # Weights:
 flags.DEFINE_float('kp_loss_wt', 10., 'keypoint loss weight')
@@ -96,27 +103,23 @@ class ShapeTrainer(train_utils.Trainer):
         img_size = (opts.img_size, opts.img_size)
 
         texture_mask_path = 'smalst/'+opts.dataset+'_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small.png'
-        self.texture_map_mask = torch.Tensor(scipy.misc.imread(texture_mask_path) / 255.0).cuda(device=opts.gpu_id)
+        self.texture_map_mask = torch.Tensor(imageio.imread(texture_mask_path) / 255.0).cuda(device=opts.gpu_id)
 
         tex_masks = None
-
         data_path = 'smalst/smpl_models/my_smpl_data_00781_4_all.pkl'
-        data = pkl.load(open(data_path))
-
+        data = pkl.load(open(data_path,"rb"),fix_imports=True, encoding="latin1")
         pca_var = data['eigenvalues'][:opts.num_betas]
         self.betas_prec = torch.Tensor(pca_var).cuda(device=opts.gpu_id).expand(opts.batch_size, opts.num_betas)
-
+       
         self.model = smal_mesh_net.MeshNet(
             img_size, opts, nz_feat=opts.nz_feat, num_kps=opts.num_kps, tex_masks=tex_masks)
 
         if opts.num_pretrain_epochs > 0:
             self.load_network(self.model, 'pred', opts.num_pretrain_epochs)
-
         self.model = self.model.cuda(device=opts.gpu_id)
 
         if not opts.infer_vert2kp:
-            self.vert2kp = torch.Tensor(pkl.load(open('smalst/'+opts.dataset+'_data/verts2kp.pkl'))).cuda(device=opts.gpu_id)
-
+            self.vert2kp = torch.Tensor(pkl.load(open('smalst/'+opts.dataset+'_data/verts2kp.pkl',"rb"),fix_imports=True, encoding="latin1")).cuda(device=opts.gpu_id)
         # Data structures to use for triangle priors.
         edges2verts = self.model.edges2verts
         # B x E x 4
@@ -138,7 +141,7 @@ class ShapeTrainer(train_utils.Trainer):
         # For visualization
         self.vis_rend = smal_vis.VisRenderer(opts.img_size, faces.data.cpu().numpy(), opts.projection_type, opts.norm_f, opts.norm_z, opts.norm_f0)
 
-        self.background_imgs = None
+        self.background_imgs = None        
         return
 
     def init_dataset(self):
@@ -187,7 +190,8 @@ class ShapeTrainer(train_utils.Trainer):
     def set_optimization_input(self):
         opts = self.opts
         cams = np.zeros((self.scale_pred.shape[0], 3))
-        cams[:,0] = self.scale_pred.data
+        scale_pred = self.scale_pred.cpu().detach().numpy()
+        cams[:,0] = scale_pred
         cams[:,1:] = 128
         self.cams = Variable(torch.FloatTensor(cams).cuda(device=opts.gpu_id), requires_grad=False)
         self.model_trans = Variable(self.trans_pred.cuda(device=opts.gpu_id), requires_grad=False)
@@ -210,10 +214,8 @@ class ShapeTrainer(train_utils.Trainer):
 
     def set_input(self, batch):
         opts = self.opts
-
         # Image with annotations.
         input_img_tensor = batch['img'].type(torch.FloatTensor)
-
         for b in range(input_img_tensor.size(0)):
             input_img_tensor[b] = self.resnet_transform(input_img_tensor[b])
 
@@ -344,7 +346,6 @@ class ShapeTrainer(train_utils.Trainer):
         if opts.use_smal_pose: 
             self.pred_v = self.model.get_smal_verts(self.pose_pred, self.betas_pred, self.trans_pred, del_v)
         else:
-            # TODO
             self.mean_shape = self.model.get_mean_shape()
             self.pred_v = self.mean_shape + del_v + self.trans_pred
 
@@ -387,10 +388,10 @@ class ShapeTrainer(train_utils.Trainer):
             self.textures = None
             if opts.save_training_imgs and opts.use_mask and self.masks is not None:
                 T = 255*self.mask_pred.cpu().detach().numpy()[0,:,:]
-                scipy.misc.imsave(opts.name + '_mask_pred.png', T)
+                imageio.imwrite(opts.name + '_mask_pred.png', T)
                 T = 255*self.masks.cpu().detach().numpy()[0,:,:,:]
                 T = np.transpose(T,(1,2,0))[:,:,0]
-                scipy.misc.imsave(opts.name + '_mask_gt.png', T)
+                imageio.imwrite(opts.name + '_mask_gt.png', T)
 
         # Compute losses for this instance.
         if self.opts.use_keypoints and self.kps is not None:
@@ -457,7 +458,7 @@ class ShapeTrainer(train_utils.Trainer):
             if opts.texture_map and self.texture_map is not None:
                 uv_flows = self.model.texture_predictor.uvimage_pred
                 uv_flows = uv_flows.permute(0, 2, 3, 1)
-                uv_images = torch.nn.functional.grid_sample(self.imgs, uv_flows)
+                uv_images = torch.nn.functional.grid_sample(self.imgs, uv_flows,align_corners = True)
                 self.tex_map_loss = self.texture_map_loss(uv_images, self.texture_map, self.texture_map_mask, self.opts)
             if opts.uv_flow and self.uv_flow_gt is not None:
                 uv_flows = self.model.texture_predictor.uvimage_pred
@@ -527,7 +528,7 @@ class ShapeTrainer(train_utils.Trainer):
             uv_flows = self.model.texture_predictor.uvimage_pred
             # B x H x W x 2
             uv_flows = uv_flows.permute(0, 2, 3, 1)
-            uv_images = torch.nn.functional.grid_sample(self.imgs, uv_flows)
+            uv_images = torch.nn.functional.grid_sample(self.imgs, uv_flows,align_corners = True)
 
         num_show = min(2, self.opts.batch_size)
         show_uv_imgs = []
