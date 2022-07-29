@@ -1,2 +1,6 @@
 # python interpreter files
 *.pyc
+
+#
+/smal_model/*
+/smal_model/smpl_webuser/*
