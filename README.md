@@ -1,4 +1,4 @@
-** Changes made this this repository fork where to enable it to run in Python 3**
+**Changes were applied to the codebase to enable the scripts to run in Python 3*
 _____________________________________________________________________________________________________________________________________________________________________
 # Three-D Safari: Learning to Estimate Zebra Pose, Shape, and Texture from Images "In the Wild"
 
