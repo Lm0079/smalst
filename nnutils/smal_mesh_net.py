@@ -32,7 +32,7 @@ flags.DEFINE_string('model_name', 'my_smpl_00781_4_all.pkl', 'name of the model'
 flags.DEFINE_boolean('symmetric', False, 'Use symmetric mesh or not')
 flags.DEFINE_boolean('symmetric_texture', False, 'if true texture is symmetric!')
 flags.DEFINE_integer('nz_feat', 1024, 'Encoded feature size')
-
+flags.DEFINE_integer('nc_init', 256, 'Encoded feature size')
 flags.DEFINE_boolean('use_norm_f_and_z', True, 'if to use normalized f and z')
 flags.DEFINE_float('camera_ref', '2700.', 'expected focal length value')
 flags.DEFINE_float('trans_ref', '19.', 'expected model distance from camera (13 for linear)')
@@ -161,7 +161,7 @@ class TexturePredictorUV(nn.Module):
     Outputs mesh texture
     """
 
-    def __init__(self, nz_feat, uv_sampler, opts, img_H=64, img_W=128, n_upconv=5, nc_init=256, predict_flow=False, symmetric=False, num_sym_faces=624, tex_masks=None,vt=None, ft=None):
+    def __init__(self, nz_feat, uv_sampler, opts, img_H=64, img_W=128, n_upconv=5, nc_init=128, predict_flow=False, symmetric=False, num_sym_faces=624, tex_masks=None,vt=None, ft=None):
         super(TexturePredictorUV, self).__init__()
         self.opts = opts
         self.feat_H = img_H // (2 ** n_upconv)
@@ -531,12 +531,21 @@ class MeshNet(nn.Module):
             uv_sampler = uv_sampler.unsqueeze(0).repeat(self.opts.batch_size, 1, 1, 1, 1)
             if opts.number_of_textures > 0:
                     if opts.texture_img_size == 256:
+                        self.nc_init = 256
                         if opts.number_of_textures == 7:
                             img_H = np.array([96, 96, 96, 96, 160, 160, 160])
                             img_W = np.array([64, 128, 32, 32, 128, 96, 32])
                         elif opts.number_of_textures == 4:
                             img_H = np.array([96, 160, 160, 256])
                             img_W = np.array([224, 128, 96, 32])
+                    elif opts.texture_img_size == 512:
+                        self.nc_init=128
+                        if opts.number_of_textures == 7:
+                            img_H = np.array([192, 192, 192, 192, 320, 320, 320])
+                            img_W = np.array([128, 256,  64,  64, 256, 192,  64])
+                        elif opts.number_of_textures == 4:
+                            img_H = np.array([192, 320, 320, 512])
+                            img_W = np.array([448, 256, 192,  64])
                     else:
                         print('ERROR texture')
                         import pdb; pdb.set_trace()
@@ -547,7 +556,7 @@ class MeshNet(nn.Module):
 
             self.texture_predictor = TexturePredictorUV(
               nz_feat, uv_sampler, opts, img_H=img_H, img_W=img_W, predict_flow=True, symmetric=opts.symmetric_texture,
-              num_sym_faces=self.num_sym_faces, tex_masks=self.tex_masks, vt=vt, ft=ft)
+              num_sym_faces=self.num_sym_faces, tex_masks=self.tex_masks, vt=vt, ft=ft,nc_init=self.nc_init)
            
             nb.net_init(self.texture_predictor)
 

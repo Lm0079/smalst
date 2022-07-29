@@ -6,7 +6,7 @@ python -m smalst.smal_eval --name=smal_net_600 --img_path='smalst/testset_zoo/' 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+import pdb
 from absl import flags, app
 import numpy as np
 
@@ -262,7 +262,13 @@ def save_params(outputs, idx):
 
 def main(_):
 
-    texture_mask_path = 'smalst/zebra_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small_256.png'
+    if opts.texture_img_size==256:
+        texture_mask_path = 'smalst-custom/zebra_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small_256.png'
+    elif opts.texture_img_size==512:
+        texture_mask_path = 'smalst-custom/zebra_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small_512.png'
+    else:
+        print("TEXTURE SIZE ERROR")
+        import pdb; pdb.set_trace()
     tex_mask =  np.asarray(imageio.imread(texture_mask_path))/255. 
 
 

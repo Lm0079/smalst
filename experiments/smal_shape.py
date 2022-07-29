@@ -102,7 +102,13 @@ class ShapeTrainer(train_utils.Trainer):
 
         img_size = (opts.img_size, opts.img_size)
 
-        texture_mask_path = 'smalst/'+opts.dataset+'_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small.png'
+        if opts.texture_img_size == 256:
+            texture_mask_path = 'smalst/'+opts.dataset+'_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small.png'
+        elif  opts.texture_img_size == 512:
+            texture_mask_path = 'smalst/'+opts.dataset+'_data/texture_maps/my_smpl_00781_4_all_template_w_tex_uv_001_mask_small_512.png'
+        else:
+            print("TEXTURE SIZE ERROR")
+            import pdb; pdb.set_trace()
         self.texture_map_mask = torch.Tensor(imageio.imread(texture_mask_path) / 255.0).cuda(device=opts.gpu_id)
 
         tex_masks = None
@@ -283,8 +289,18 @@ class ShapeTrainer(train_utils.Trainer):
             self.texture_map = None
 
         if 'uv_flow' in batch.keys():
-            uv_flow_tensor = batch['uv_flow'].type(torch.FloatTensor).permute(0,3,1,2)
+            if opts.texture_img_size == 256:
+                uv_flow_tensor = batch['uv_flow'].type(torch.FloatTensor).permute(0,3,1,2) 
+            elif opts.texture_img_size == 512:
+                uv_flow_tensor = batch['uv_flow'].type(torch.FloatTensor).permute(0,3,1,2)
+                uv_flow_tensor = torch.nn.functional.interpolate(uv_flow_tensor,scale_factor =2)
+            else:
+                print("UV error")
+                import pdb; pdb.set_trace()
+            
+
             self.uv_flow_gt = Variable(uv_flow_tensor.cuda(device=opts.gpu_id), requires_grad=False)
+
         else:
             self.uv_flow_gt = None
 
