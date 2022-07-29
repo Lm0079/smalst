@@ -1,3 +1,5 @@
+**Changes were applied to the codebase to enable the scripts to run in Python 3*
+_____________________________________________________________________________________________________________________________________________________________________
 # Three-D Safari: Learning to Estimate Zebra Pose, Shape, and Texture from Images "In the Wild"
 
 Silvia Zuffi<sup>1</sup>, Angjoo Kanazawa<sup>2</sup>, Tanya Berger-Wolf<sup>3</sup>, Michael J. Black<sup>4</sup>
